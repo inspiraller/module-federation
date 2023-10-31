@@ -1,5 +1,6 @@
 const webpack = require('webpack');
 const path = require('path');
+const MF = require('webpack').container.ModuleFederationPlugin;
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
@@ -7,6 +8,8 @@ const sass = require('sass');
 
 const contentBase = path.resolve(__dirname, './public');
 const prodBuild = path.resolve(__dirname, './dist');
+
+const mfNumber = 1;
 
 const port = 3001;
 const startFile = 'index.tsx';
@@ -24,6 +27,8 @@ const config = {
   output: {
     path: prodBuild,
     filename: '[name].bundle.js',
+    uniqueName: 'mf1' // fix: important for module federation error - Cannot read properties of undefined (reading 'call')
+  // also ensure package.json name is mf1
   },
   mode: 'development',
   module: {
@@ -88,7 +93,7 @@ const config = {
   },
 
   resolve: {
-    extensions: ['*', '.js', '.jsx', '.ts', '.tsx', '.scss', '.css'],
+    extensions: ['.*', '.js', '.jsx', '.ts', '.tsx', '.scss', '.css'],
     modules: [src, 'node_modules'],
     alias: {
       src,
@@ -105,14 +110,31 @@ const config = {
     new MiniCssExtractPlugin({
       filename: isDevelopment ? '[name].css' : '[name].[hash].css',
       chunkFilename: isDevelopment ? '[id].css' : '[id].[hash].css',
+    }),
+    new MF({
+      // exposes data from this repo: mf1
+      name: 'mf1',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './useNav': './src/useNav/useNav.ts'
+      },
+      // gets data from another location: mf2
+      remotes: {}
+      // remotes: {
+      //   mf2: 'mf2@http://localhost:3002/remoteEntry.js'
+      // }
     })
   ],
-
+  target: 'web',
   devServer: {
     static: contentBase, // https://gist.github.com/johnrichardrinehart/c8ec6ab1e60f39fc3b8dc738db649ec0 - contentBase was renamed to static
     port,
     historyApiFallback: true,
     hot: true,
+    open: true,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+    },
   },
   devtool: isDevelopment ? 'source-map' : undefined, // 1.5mb shaved off size
   // eval-souce-map - error:  DevTools failed to load source map: Could not load content foor
